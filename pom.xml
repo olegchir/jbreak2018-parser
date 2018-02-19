@@ -4,12 +4,12 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.olegchir.jug.site.parser</groupId>
-	<artifactId>heisenbug2017moscow-parser</artifactId>
+	<artifactId>jbreak2018-parser</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>heisenbug2017moscow-parser</name>
-	<description>Parser for site of the Heisenbug 2017 Moscow conference</description>
+	<name>jbreak2018-parser</name>
+	<description>Parser for site of the JBreak 2018 Moscow conference</description>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>

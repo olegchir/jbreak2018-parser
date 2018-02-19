@@ -1,4 +1,4 @@
-package com.olegchir.jug.site.parser.heisenbug2017moscowparser;
+package com.olegchir.jug.site.parser.jbreak2018parser;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
@@ -32,8 +32,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class AppRunner implements CommandLineRunner {
-    public String pUrl = "https://heisenbug-moscow.ru/";
-    public String pWorkDir = "C:/temp/hb";
+    public String pUrl = "https://2018.jbreak.ru/talks/";
+    public String pWorkDir = "C:/temp/jbreak";
     public int imageNum = 0;
 
     @Override
@@ -47,6 +47,7 @@ public class AppRunner implements CommandLineRunner {
         if (!cacheExists()) {
             System.out.println("Extracting talks from the Internets");
             talks = findTalks();
+//            fillDescription(talks.stream().filter(t -> t.getName().contains("Spring Boot")).findFirst().get(), true);
             for (Talk talk: talks) {
                 fillDescription(talk, true);
             }
@@ -214,7 +215,7 @@ public class AppRunner implements CommandLineRunner {
         try {
 
             rootDriver.get(pUrl);
-            List<WebElement> wtalks = rootDriver.findElementsByClassName("pt-col-talk");
+            List<WebElement> wtalks = rootDriver.findElementsByClassName("card--talk");
             System.out.println("ok!");
             for (WebElement wtalk : wtalks) {
                 WebElement element = null;
@@ -224,32 +225,34 @@ public class AppRunner implements CommandLineRunner {
 
                     //This line is intentional! Without this everything breaks, and I really don't know why.
                     //Without this line the next call to findElements will return an empty list, that is obviously an error.
-                    WebElement speakerNamex = wtalk.findElement(By.className("pt-speaker_name"));
+                    WebElement speakerNamex = wtalk.findElement(By.className("card__speaker"));
 
-                    List<WebElement> speakerNames = wtalk.findElements(By.className("pt-speaker_name"));
+                    List<WebElement> speakerNames = wtalk.findElements(By.className("card__speaker"));
                     for (WebElement speakerName: speakerNames) {
                         talkIsValid = true;
                         String text = speakerName.getText();
-                        String[] split = text.split("\n");
-                        if (split.length != 2) {
-                            talkIsValid = false;
-                            break;
-                        }
-                        int speakersNum = split.length/2;
-
-                        for (int i=0; i<speakersNum; i++) {
+//                        String[] split = text.split("\n");
+//                        if (split.length != 2) {
+//                            talkIsValid = false;
+//                            break;
+//                        }
+//                        int speakersNum = split.length/2;
+//
+//                        for (int i=0; i<speakersNum; i++) {
                             Speaker speaker = new Speaker();
-                            speaker.setSpeaker(split[i*2]);
-                            speaker.setCompany(split[i*2 + 1]);
+//                            speaker.setSpeaker(split[i*2]);
+//                            speaker.setCompany(split[i*2 + 1]);
+                            speaker.setSpeaker(text);
+                            speaker.setCompany("компании не пишем");
                             talk.getSpeakers().add(speaker);
-                        }
+//                        }
                     }
 
                     if (!talkIsValid) {
                         continue;
                     }
 
-                    element = wtalk.findElement(By.className("event_talk_link"));
+                    element = wtalk.findElement(By.className("card__title-link"));
                     String nameText = element.getText();
                     talk.setName(nameText);
                     talk.setId(nameText);
@@ -270,13 +273,17 @@ public class AppRunner implements CommandLineRunner {
         return talks;
     }
 
+    public List<WebElement> loadByXPath(WebElement element, String xpath) {
+        return element.findElements(By.xpath(xpath));
+    }
+
     public void fillDescription(Talk talk, boolean downloadImages) throws IOException {
         JBrowserDriver descDriver = new JBrowserDriver(Settings.builder().
                 timezone(Timezone.AMERICA_NEWYORK).build());
         try {
             descDriver.get(talk.getUrl());
-            WebElement element = descDriver.findElement(By.className("my-3"));
-            List<WebElement> descParagraphs = element.findElements(By.xpath("./div/div/p"));
+            WebElement element = descDriver.findElement(By.className("text-content"));
+            List<WebElement> descParagraphs = element.findElements(By.xpath("./p"));
             List<String> descParagraphsAsString = new ArrayList<>();
             for (WebElement par : descParagraphs) {
                 String parText = par.getText();
@@ -284,18 +291,24 @@ public class AppRunner implements CommandLineRunner {
             }
             talk.setDescription(descParagraphsAsString);
 
-            for (int pos=2; pos <= talk.getSpeakers().size()*2; pos += 2) {
-                Speaker speaker = talk.getSpeakers().get(pos / 2 - 1);
-                String xpathPar = String.format("./div/div/div[contains(@class, 'row') and position()=%d]//p", pos);
+            for (int pos=1; pos <= talk.getSpeakers().size(); pos += 1) {
+                Speaker speaker = talk.getSpeakers().get(pos-1);
+//                String xpathPar = String.format("./div/div/div[contains(@class, 'row') and position()=%d]//p", pos);
+                String xpathPar = String.format("./div[contains(@class, 'speaker-profile') and position()=%d]/div[contains(@class, 'speaker__main')]/text()", pos);
                 List<WebElement> bioParagraphs = element.findElements(By.xpath(xpathPar));
                 for (WebElement par : bioParagraphs) {
-                    String parText = par.getText();
+                    //http://automated-testing.info/t/gettext-ne-izvlekaet-tekstovoe-znachenie-iz-elementov/9095/8
+                    String parText = par.getAttribute("textContent");
                     speaker.getBio().add(parText);
                 }
 
-                String xpathImg = String.format("./div/div/div[contains(@class, 'row') and position()=%d]//img", pos);
-                WebElement faceImg = element.findElement(By.xpath(xpathImg));
-                String imgSrc = faceImg.getAttribute("src");
+                String xpathImg = String.format("./div[contains(@class, 'speaker-profile') and position()=%d]/div[contains(@class, 'speaker__photo')]//img", pos);
+                List<WebElement> faceImgs = element.findElements(By.xpath(xpathImg));
+                WebElement faceImg = faceImgs.get(0);
+                String imgSrc = faceImg.getAttribute("srcset");
+                if (!imgSrc.startsWith("http")) {
+                    imgSrc = "http:"+imgSrc;
+                }
                 speaker.setImageUrl(imgSrc);
 
                 if (downloadImages) {

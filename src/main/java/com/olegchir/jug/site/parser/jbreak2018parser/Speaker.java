@@ -1,4 +1,4 @@
-package com.olegchir.jug.site.parser.heisenbug2017moscowparser;
+package com.olegchir.jug.site.parser.jbreak2018parser;
 
 import java.util.ArrayList;
 import java.util.List;
